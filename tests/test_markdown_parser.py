@@ -69,6 +69,47 @@ slug: legacy-grammar
     assert lesson.vocabulary[0].id == "lesson-09-legacy-grammar-vocabulary-001"
 
 
+def test_parser_accepts_optional_audio_columns(tmp_path: Path) -> None:
+    audio = tmp_path / "hello.mp3"
+    audio.write_bytes(b"audio")
+    markdown = f"""---
+number: 9
+title: Audio Lesson
+slug: audio-lesson
+---
+
+# Lesson 9: Audio Lesson
+
+## Grammar
+- A grammar bullet.
+
+## Vocabulary
+| Thai | English | Audio |
+| --- | --- | --- |
+| ไป | go | {audio.name} |
+
+## Example Sentences
+| Thai | English | Audio |
+| --- | --- | --- |
+| ไปครับ | I go. | {audio} |
+
+## Exercises
+| Prompt | Answer |
+| --- | --- |
+| Say go. | ไป |
+
+## Dialogue
+| Speaker | Thai | English |
+| --- | --- | --- |
+| A | ไปครับ | I go. |
+"""
+
+    lesson = LessonMarkdownParser().parse(markdown, base_dir=tmp_path)
+
+    assert lesson.vocabulary[0].audio == audio
+    assert lesson.sentences[0].audio == audio
+
+
 def test_parser_rejects_missing_front_matter() -> None:
     markdown = "# Lesson 9: Incomplete\n\n## Grammar\n- One note\n"
 

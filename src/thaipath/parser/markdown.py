@@ -25,9 +25,9 @@ class LessonMarkdownParser:
     def parse_file(self, path: Path) -> Lesson:
         """Parse a lesson from ``path``."""
 
-        return self.parse(path.read_text(encoding="utf-8"), source=str(path))
+        return self.parse(path.read_text(encoding="utf-8"), source=str(path), base_dir=path.parent)
 
-    def parse(self, markdown: str, *, source: str = "<memory>") -> Lesson:
+    def parse(self, markdown: str, *, source: str = "<memory>", base_dir: Path | None = None) -> Lesson:
         """Parse a lesson from Markdown text."""
 
         front_matter, body = self._split_front_matter(markdown, source)
@@ -36,8 +36,8 @@ class LessonMarkdownParser:
         lesson = Lesson(
             metadata=metadata,
             grammar_concepts=tuple(self._grammar(sections.get("grammar", []), metadata.id)),
-            vocabulary=tuple(self._vocabulary(sections.get("vocabulary", []), metadata.id)),
-            sentences=tuple(self._sentences(sections.get("example sentences", []), metadata.id)),
+            vocabulary=tuple(self._vocabulary(sections.get("vocabulary", []), metadata.id, base_dir)),
+            sentences=tuple(self._sentences(sections.get("example sentences", []), metadata.id, base_dir)),
             exercises=tuple(self._exercises(sections.get("exercises", []), metadata.id)),
             dialogue=tuple(self._dialogue(sections.get("dialogue", []), metadata.id)),
         )
@@ -153,7 +153,7 @@ class LessonMarkdownParser:
             for index, bullet in enumerate(self._bullets(lines), start=1)
         ]
 
-    def _vocabulary(self, lines: list[str], lesson_id: str) -> list[VocabularyItem]:
+    def _vocabulary(self, lines: list[str], lesson_id: str, base_dir: Path | None) -> list[VocabularyItem]:
         return [
             VocabularyItem(
                 id=row.get("id") or self._stable_child_id(lesson_id, "vocabulary", index),
@@ -162,12 +162,13 @@ class LessonMarkdownParser:
                 english=row.get("english", ""),
                 transliteration=row.get("transliteration") or None,
                 part_of_speech=row.get("part of speech") or row.get("pos") or None,
+                audio=self._optional_media_path(row.get("audio"), base_dir),
                 note=row.get("note") or None,
             )
             for index, row in enumerate(self._table(lines), start=1)
         ]
 
-    def _sentences(self, lines: list[str], lesson_id: str) -> list[Sentence]:
+    def _sentences(self, lines: list[str], lesson_id: str, base_dir: Path | None) -> list[Sentence]:
         return [
             Sentence(
                 id=row.get("id") or self._stable_child_id(lesson_id, "sentence", index),
@@ -176,9 +177,18 @@ class LessonMarkdownParser:
                 english=row.get("english", ""),
                 transliteration=row.get("transliteration") or None,
                 note=row.get("note") or None,
+                audio=self._optional_media_path(row.get("audio"), base_dir),
             )
             for index, row in enumerate(self._table(lines), start=1)
         ]
+
+    def _optional_media_path(self, value: str | None, base_dir: Path | None) -> Path | None:
+        if not value:
+            return None
+        path = Path(value)
+        if not path.is_absolute() and base_dir is not None:
+            path = base_dir / path
+        return path
 
     def _exercises(self, lines: list[str], lesson_id: str) -> list[Exercise]:
         rows = self._table(lines)
