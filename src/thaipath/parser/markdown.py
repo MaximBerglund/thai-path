@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 from thaipath.models import DialogueLine, Exercise, GrammarConcept, Lesson, LessonMetadata, Sentence, VocabularyItem
 
 _SECTION_NAMES = {"grammar", "vocabulary", "example sentences", "exercises", "dialogue"}
+_SECTION_ALIASES = {"practice": "exercises", "mini dialogue": "dialogue"}
 
 
 class MarkdownLessonError(ValueError):
@@ -83,35 +86,49 @@ class LessonMarkdownParser:
         return data
 
     def _metadata(self, data: dict[str, Any], source: str) -> LessonMetadata:
-        required = ["number", "title", "slug"]
-        missing = [key for key in required if key not in data]
-        if missing:
-            raise MarkdownLessonError(f"{source}: missing front matter keys: {', '.join(missing)}")
+        if "title" not in data:
+            raise MarkdownLessonError(f"{source}: missing front matter keys: title")
+        number_key = "lesson" if "lesson" in data else "number"
+        if number_key not in data:
+            raise MarkdownLessonError(f"{source}: missing front matter keys: lesson")
         tags = data.get("tags", ())
         if isinstance(tags, str):
             tags = (tags,)
-        lesson_number = int(data["number"])
-        slug = str(data["slug"])
-        lesson_id = str(data.get("id") or f"lesson-{lesson_number:02d}-{slug}")
+        lesson_number = int(data[number_key])
+        slug = str(data.get("slug") or self._slugify(str(data["title"])))
+        id_width = 3 if number_key == "lesson" and "slug" not in data else 2
+        lesson_id = str(data.get("id") or f"lesson-{lesson_number:0{id_width}d}-{slug}")
         return LessonMetadata(
             id=lesson_id,
             number=lesson_number,
             title=str(data["title"]),
             slug=slug,
-            level=str(data.get("level", "beginner")),
+            level=str(data.get("level") or data.get("difficulty") or "beginner"),
             tags=tuple(str(tag) for tag in tags),
         )
+
+    def _slugify(self, value: str) -> str:
+        normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+        return slug or "lesson"
 
     def _sections(self, lines: list[str]) -> dict[str, list[str]]:
         sections: dict[str, list[str]] = {}
         current: str | None = None
         for line in lines:
-            if line.startswith("## "):
-                name = line[3:].strip().lower()
-                current = name if name in _SECTION_NAMES else None
-                if current is not None:
-                    sections[current] = []
-                continue
+            heading = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
+            if heading:
+                name = heading.group(2).strip().lower()
+                canonical = _SECTION_ALIASES.get(name, name)
+                if canonical in _SECTION_NAMES:
+                    current = canonical
+                    sections.setdefault(current, [])
+                    continue
+                if current is None:
+                    continue
+                if len(heading.group(1)) == 1:
+                    current = None
+                    continue
             if current is not None:
                 sections[current].append(line)
         return sections
@@ -120,21 +137,33 @@ class LessonMarkdownParser:
         return [line[2:].strip() for line in lines if line.startswith("- ") and line[2:].strip()]
 
     def _table(self, lines: list[str]) -> list[dict[str, str]]:
-        rows = [line.strip() for line in lines if line.strip().startswith("|") and line.strip().endswith("|")]
-        if len(rows) < 2:
-            return []
-        headers = [cell.strip().lower() for cell in rows[0].strip("|").split("|")]
         output: list[dict[str, str]] = []
-        for row in rows[2:]:
-            cells = [cell.strip() for cell in row.strip("|").split("|")]
-            if len(cells) != len(headers):
-                raise MarkdownLessonError("table row has a different number of cells than its header")
-            output.append(dict(zip(headers, cells, strict=True)))
+        current: list[str] = []
+
+        def flush() -> None:
+            nonlocal current
+            if len(current) >= 2:
+                headers = [cell.strip().lower() for cell in current[0].strip("|").split("|")]
+                for row in current[2:]:
+                    cells = [cell.strip() for cell in row.strip("|").split("|")]
+                    if len(cells) != len(headers):
+                        raise MarkdownLessonError("table row has a different number of cells than its header")
+                    output.append(dict(zip(headers, cells, strict=True)))
+            current = []
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("|") and stripped.endswith("|"):
+                current.append(stripped)
+            else:
+                flush()
+        flush()
         return output
 
     def _grammar(self, lines: list[str], lesson_id: str) -> list[GrammarConcept]:
         rows = self._table(lines)
-        if rows:
+        has_subheadings = any(re.match(r"^#{2,6}\s+", line) for line in lines)
+        if rows and not has_subheadings:
             return [
                 GrammarConcept(
                     id=row.get("id") or self._stable_child_id(lesson_id, "grammar", index),
@@ -144,14 +173,48 @@ class LessonMarkdownParser:
                 )
                 for index, row in enumerate(rows, start=1)
             ]
-        return [
-            GrammarConcept(
-                id=self._stable_child_id(lesson_id, "grammar", index),
-                lesson_id=lesson_id,
-                explanation=bullet,
-            )
-            for index, bullet in enumerate(self._bullets(lines), start=1)
-        ]
+        if has_subheadings:
+            return self._prose_grammar(lines, lesson_id)
+        bullets = self._bullets(lines)
+        if bullets:
+            return [
+                GrammarConcept(
+                    id=self._stable_child_id(lesson_id, "grammar", index),
+                    lesson_id=lesson_id,
+                    explanation=bullet,
+                )
+                for index, bullet in enumerate(bullets, start=1)
+            ]
+        return self._prose_grammar(lines, lesson_id)
+
+    def _prose_grammar(self, lines: list[str], lesson_id: str) -> list[GrammarConcept]:
+        concepts: list[GrammarConcept] = []
+        title: str | None = None
+        body: list[str] = []
+
+        def flush() -> None:
+            nonlocal body, title
+            explanation = "\n".join(line for line in body if line.strip() and line.strip() != "---").strip()
+            if explanation:
+                concepts.append(
+                    GrammarConcept(
+                        id=self._stable_child_id(lesson_id, "grammar", len(concepts) + 1),
+                        lesson_id=lesson_id,
+                        title=title,
+                        explanation=explanation,
+                    )
+                )
+            body = []
+
+        for line in lines:
+            heading = re.match(r"^#{2,6}\s+(.+?)\s*$", line)
+            if heading:
+                flush()
+                title = heading.group(1).strip()
+            else:
+                body.append(line)
+        flush()
+        return concepts
 
     def _vocabulary(self, lines: list[str], lesson_id: str, base_dir: Path | None) -> list[VocabularyItem]:
         return [
@@ -160,10 +223,10 @@ class LessonMarkdownParser:
                 lesson_id=lesson_id,
                 thai=row.get("thai", ""),
                 english=row.get("english", ""),
-                transliteration=row.get("transliteration") or None,
+                transliteration=row.get("transliteration") or row.get("romanization") or None,
                 part_of_speech=row.get("part of speech") or row.get("pos") or None,
                 audio=self._optional_media_path(row.get("audio"), base_dir),
-                note=row.get("note") or None,
+                note=row.get("note") or row.get("notes") or None,
             )
             for index, row in enumerate(self._table(lines), start=1)
         ]
@@ -175,8 +238,8 @@ class LessonMarkdownParser:
                 lesson_id=lesson_id,
                 thai=row.get("thai", ""),
                 english=row.get("english", ""),
-                transliteration=row.get("transliteration") or None,
-                note=row.get("note") or None,
+                transliteration=row.get("transliteration") or row.get("romanization") or None,
+                note=row.get("note") or row.get("notes") or None,
                 audio=self._optional_media_path(row.get("audio"), base_dir),
             )
             for index, row in enumerate(self._table(lines), start=1)
@@ -202,23 +265,52 @@ class LessonMarkdownParser:
                 )
                 for index, row in enumerate(rows, start=1)
             ]
+        prompts = self._bullets(lines)
+        prompts.extend(match.group(1).strip() for line in lines if (match := re.match(r"^\d+\.\s+(.+)$", line.strip())))
         return [
-            Exercise(id=self._stable_child_id(lesson_id, "exercise", index), lesson_id=lesson_id, prompt=bullet)
-            for index, bullet in enumerate(self._bullets(lines), start=1)
+            Exercise(id=self._stable_child_id(lesson_id, "exercise", index), lesson_id=lesson_id, prompt=prompt)
+            for index, prompt in enumerate(prompts, start=1)
         ]
 
     def _dialogue(self, lines: list[str], lesson_id: str) -> list[DialogueLine]:
-        return [
-            DialogueLine(
-                id=row.get("id") or self._stable_child_id(lesson_id, "dialogue", index),
-                lesson_id=lesson_id,
-                speaker=row.get("speaker", ""),
-                thai=row.get("thai", ""),
-                english=row.get("english", ""),
-                transliteration=row.get("transliteration") or None,
+        rows = self._table(lines)
+        if rows:
+            return [
+                DialogueLine(
+                    id=row.get("id") or self._stable_child_id(lesson_id, "dialogue", index),
+                    lesson_id=lesson_id,
+                    speaker=row.get("speaker", ""),
+                    thai=row.get("thai", ""),
+                    english=row.get("english", ""),
+                    transliteration=row.get("transliteration") or row.get("romanization") or None,
+                )
+                for index, row in enumerate(rows, start=1)
+            ]
+        compact = [line.strip() for line in lines if line.strip() and line.strip() != "---"]
+        output: list[DialogueLine] = []
+        speaker_indexes = [index for index, line in enumerate(compact) if line.endswith(":")]
+        for position, speaker_index in enumerate(speaker_indexes):
+            next_speaker_index = speaker_indexes[position + 1] if position + 1 < len(speaker_indexes) else len(compact)
+            speaker = compact[speaker_index][:-1]
+            content = compact[speaker_index + 1 : next_speaker_index]
+            if not content:
+                continue
+            thai = content[0]
+            transliteration = content[1] if len(content) >= 3 else None
+            english = content[2] if len(content) >= 3 else ""
+            if len(content) == 2:
+                thai = "\n".join(content)
+            output.append(
+                DialogueLine(
+                    id=self._stable_child_id(lesson_id, "dialogue", len(output) + 1),
+                    lesson_id=lesson_id,
+                    speaker=speaker,
+                    thai=thai,
+                    english=english,
+                    transliteration=transliteration,
+                )
             )
-            for index, row in enumerate(self._table(lines), start=1)
-        ]
+        return output
 
     def _stable_child_id(self, lesson_id: str, kind: str, index: int) -> str:
         return f"{lesson_id}-{kind}-{index:03d}"

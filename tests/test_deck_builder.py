@@ -12,7 +12,11 @@ def test_loader_creates_course_model() -> None:
     assert course.title == "Thai Path"
     assert course.version == "0.1.0"
     assert [lesson.number for lesson in course.lessons] == [1, 2]
-    assert "introductions" in course.tags
+    assert [lesson.id for lesson in course.lessons] == [
+        "lesson-001-building-your-first-thai-sentences",
+        "lesson-002-questions-negation-and-to-be",
+    ]
+    assert course.lessons[0].metadata.level == "A0"
 
 
 def test_builder_writes_anki_package(tmp_path: Path) -> None:

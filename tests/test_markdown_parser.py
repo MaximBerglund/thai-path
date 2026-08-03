@@ -115,3 +115,33 @@ def test_parser_rejects_missing_front_matter() -> None:
 
     with pytest.raises(MarkdownLessonError):
         LessonMarkdownParser().parse(markdown)
+
+
+
+def test_parser_loads_canonical_lesson_format() -> None:
+    lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson001.md"))
+
+    assert lesson.id == "lesson-001-building-your-first-thai-sentences"
+    assert lesson.number == 1
+    assert lesson.metadata.slug == "building-your-first-thai-sentences"
+    assert lesson.metadata.level == "A0"
+    assert len(lesson.grammar_concepts) == 2
+    assert lesson.grammar_concepts[0].title == "Thai Word Order"
+    assert len(lesson.vocabulary) == 15
+    assert lesson.vocabulary[0].transliteration == "chan"
+    assert lesson.vocabulary[0].note == "Neutral and commonly used in beginner material."
+    assert len(lesson.sentences) == 5
+    assert len(lesson.exercises) == 5
+    assert len(lesson.dialogue) == 2
+
+
+def test_parser_loads_second_canonical_lesson_fully() -> None:
+    lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson002.md"))
+
+    assert lesson.id == "lesson-002-questions-negation-and-to-be"
+    assert lesson.number == 2
+    assert len(lesson.grammar_concepts) == 3
+    assert len(lesson.vocabulary) == 9
+    assert len(lesson.sentences) == 9
+    assert len(lesson.exercises) == 6
+    assert len(lesson.dialogue) == 4
