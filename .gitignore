@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Generated Thai Path outputs
+src/thaipath/output/*
+!src/thaipath/output/.gitkeep
