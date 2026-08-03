@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thai-path"
+version = "0.1.0"
+description = "Generate Thai Path Anki decks from Markdown lessons."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "genanki>=0.13.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+thai-path-build = "thaipath.builder.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["thaipath*"]
