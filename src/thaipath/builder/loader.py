@@ -15,9 +15,18 @@ class LessonLoader:
         self._parser = parser or LessonMarkdownParser()
 
     def load_directory(self, lesson_dir: Path) -> list[Lesson]:
-        """Load every ``*.md`` lesson under ``lesson_dir``."""
+        """Load canonical Markdown lessons from ``lesson_dir`` in lesson-number order.
 
-        lessons = [self._parser.parse_file(path) for path in sorted(lesson_dir.glob("*.md"))]
+        The canonical source format uses compact filenames such as
+        ``lesson001.md``. If a directory still contains older dashed lesson
+        files for the same lesson numbers, the compact canonical files take
+        precedence so each lesson is loaded once.
+        """
+
+        paths = sorted(lesson_dir.glob("lesson[0-9][0-9][0-9].md"))
+        if not paths:
+            paths = sorted(lesson_dir.glob("*.md"))
+        lessons = [self._parser.parse_file(path) for path in paths]
         return sorted(lessons, key=lambda lesson: lesson.number)
 
     def load_course(self, lesson_dir: Path, *, title: str = "Thai Path", version: str = "0.1.0") -> Course:
