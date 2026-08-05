@@ -81,8 +81,9 @@ class GenankiDeckWriter:
         sentence_model = self._model(genanki, config.model_id + 1, "Thai Path Sentence Model", SENTENCE_CARD_TEMPLATES)
         deck = genanki.Deck(config.deck_id, config.deck_name)
         media_files: list[str] = []
+        seen_media: set[Path] = set()
         for lesson in course.lessons:
-            self._add_lesson(genanki, deck, {"vocabulary": vocabulary_model, "sentence": sentence_model}, lesson, media_files)
+            self._add_lesson(genanki, deck, {"vocabulary": vocabulary_model, "sentence": sentence_model}, lesson, media_files, seen_media)
         package = genanki.Package(deck)
         package.media_files = media_files
         package.write_to_file(output_path)
@@ -96,11 +97,12 @@ class GenankiDeckWriter:
             css=CSS,
         )
 
-    def _add_lesson(self, genanki: object, deck: object, models: dict[str, object], lesson: Lesson, media_files: list[str]) -> None:
+    def _add_lesson(self, genanki: object, deck: object, models: dict[str, object], lesson: Lesson, media_files: list[str], seen_media: set[Path]) -> None:
         for note_data in _collect_notes(lesson):
             audio_field = _audio_field(note_data.audio)
-            if audio_field and note_data.audio is not None:
+            if audio_field and note_data.audio is not None and note_data.audio not in seen_media:
                 media_files.append(str(note_data.audio))
+                seen_media.add(note_data.audio)
             note = genanki.Note(
                 model=models[note_data.card_type],
                 fields=[
@@ -130,7 +132,7 @@ class SQLiteApkgDeckWriter:
 
     def write(self, course: Course, output_path: Path, config: DeckBuildConfig) -> None:
         notes = [note for lesson in course.lessons for note in _collect_notes(lesson)]
-        media = [note.audio for note in notes if note.audio is not None]
+        media = list(dict.fromkeys(note.audio for note in notes if note.audio is not None))
         with tempfile.TemporaryDirectory() as temp_dir:
             collection_path = Path(temp_dir) / "collection.anki2"
             self._write_collection(collection_path, notes, config)

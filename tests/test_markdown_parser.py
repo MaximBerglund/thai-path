@@ -145,3 +145,20 @@ def test_parser_loads_second_canonical_lesson_fully() -> None:
     assert len(lesson.sentences) == 9
     assert len(lesson.exercises) == 6
     assert len(lesson.dialogue) == 4
+
+
+def test_parser_loads_new_official_lessons_fully() -> None:
+    expected = {
+        "lesson003.md": (3, 7, 8),
+        "lesson004.md": (4, 14, 12),
+        "lesson005.md": (5, 26, 18),
+    }
+
+    for filename, (number, vocabulary_count, sentence_count) in expected.items():
+        lesson = LessonMarkdownParser().parse_file(Path("lessons") / filename)
+
+        assert lesson.number == number
+        assert len(lesson.vocabulary) == vocabulary_count
+        assert len(lesson.sentences) == sentence_count
+        assert lesson.exercises
+        assert lesson.dialogue

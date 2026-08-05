@@ -225,7 +225,7 @@ class LessonMarkdownParser:
                 english=row.get("english", ""),
                 transliteration=row.get("transliteration") or row.get("romanization") or None,
                 part_of_speech=row.get("part of speech") or row.get("pos") or None,
-                audio=self._optional_media_path(row.get("audio"), base_dir),
+                audio=self._optional_media_path(self._audio_value(row), base_dir),
                 note=row.get("note") or row.get("notes") or None,
             )
             for index, row in enumerate(self._table(lines), start=1)
@@ -240,10 +240,13 @@ class LessonMarkdownParser:
                 english=row.get("english", ""),
                 transliteration=row.get("transliteration") or row.get("romanization") or None,
                 note=row.get("note") or row.get("notes") or None,
-                audio=self._optional_media_path(row.get("audio"), base_dir),
+                audio=self._optional_media_path(self._audio_value(row), base_dir),
             )
             for index, row in enumerate(self._table(lines), start=1)
         ]
+
+    def _audio_value(self, row: dict[str, str]) -> str | None:
+        return row.get("audio") or row.get("audio file") or row.get("audio filename") or row.get("sound")
 
     def _optional_media_path(self, value: str | None, base_dir: Path | None) -> Path | None:
         if not value:
