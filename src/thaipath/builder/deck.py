@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib
 import json
 import sqlite3
@@ -15,7 +14,7 @@ from pathlib import Path
 from typing import Protocol
 
 from thaipath.models import Course, Lesson
-from thaipath.templates.anki import CSS, CARD_TEMPLATES
+from thaipath.templates.anki import CSS, SENTENCE_CARD_TEMPLATES, VOCABULARY_CARD_TEMPLATES
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,12 +77,13 @@ class GenankiDeckWriter:
         """Write ``course`` using genanki."""
 
         genanki = importlib.import_module("genanki")
-        model = self._model(genanki, config.model_id, "Thai Path Model", CARD_TEMPLATES)
+        vocabulary_model = self._model(genanki, config.model_id, "Thai Path Vocabulary Model", VOCABULARY_CARD_TEMPLATES)
+        sentence_model = self._model(genanki, config.model_id + 1, "Thai Path Sentence Model", SENTENCE_CARD_TEMPLATES)
         deck = genanki.Deck(config.deck_id, config.deck_name)
         media_files: list[str] = []
         seen_media: set[Path] = set()
         for lesson in course.lessons:
-            self._add_lesson(genanki, deck, model, lesson, media_files, seen_media)
+            self._add_lesson(genanki, deck, {"vocabulary": vocabulary_model, "sentence": sentence_model}, lesson, media_files, seen_media)
         package = genanki.Package(deck)
         package.media_files = media_files
         package.write_to_file(output_path)
@@ -97,14 +97,14 @@ class GenankiDeckWriter:
             css=CSS,
         )
 
-    def _add_lesson(self, genanki: object, deck: object, model: object, lesson: Lesson, media_files: list[str], seen_media: set[Path]) -> None:
+    def _add_lesson(self, genanki: object, deck: object, models: dict[str, object], lesson: Lesson, media_files: list[str], seen_media: set[Path]) -> None:
         for note_data in _collect_notes(lesson):
             audio_field = _audio_field(note_data.audio)
             if audio_field and note_data.audio is not None and note_data.audio not in seen_media:
                 media_files.append(str(note_data.audio))
                 seen_media.add(note_data.audio)
             note = genanki.Note(
-                model=model,
+                model=models[note_data.card_type],
                 fields=[
                     note_data.thai,
                     note_data.english,
@@ -116,7 +116,6 @@ class GenankiDeckWriter:
                     note_data.source_id,
                 ],
                 tags=note_data.tags.split(),
-                guid=_stable_guid(note_data),
             )
             deck.add_note(note)
 
@@ -155,16 +154,16 @@ class SQLiteApkgDeckWriter:
                 (1, now, now, 11, 0, now, self._models_json(config), self._decks_json(config), json.dumps({}), json.dumps({}), json.dumps([])),
             )
             for index, note in enumerate(notes, start=1):
-                note_id = _stable_note_id(note)
+                note_id = config.deck_id * 1000 + index
                 fields = "\x1f".join([note.thai, note.english, note.transliteration, note.notes, _audio_field(note.audio), note.lesson, note.card_type, note.source_id])
                 conn.execute(
                     "INSERT INTO notes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (note_id, _stable_guid(note), config.model_id, now, -1, note.tags, fields, note.thai, 0, 0, ""),
+                    (note_id, f"thaipath-{note_id}", self._model_id(config, note.card_type), now, -1, note.tags, fields, note.thai, 0, 0, ""),
                 )
-                for ordinal, _template in enumerate(CARD_TEMPLATES):
+                for ordinal, _template in enumerate(_templates_for(note.card_type)):
                     conn.execute(
                         "INSERT INTO cards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (_stable_card_id(note, ordinal), note_id, config.deck_id, ordinal, now, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ""),
+                        (note_id * 10 + ordinal, note_id, config.deck_id, ordinal, now, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ""),
                     )
             conn.commit()
         finally:
@@ -182,8 +181,9 @@ class SQLiteApkgDeckWriter:
         )
 
     def _models_json(self, config: DeckBuildConfig) -> str:
-        model = self._model_json(config.model_id, "Thai Path Model", CARD_TEMPLATES)
-        return json.dumps({str(config.model_id): model})
+        vocabulary_model = self._model_json(config.model_id, "Thai Path Vocabulary Model", VOCABULARY_CARD_TEMPLATES)
+        sentence_model = self._model_json(config.model_id + 1, "Thai Path Sentence Model", SENTENCE_CARD_TEMPLATES)
+        return json.dumps({str(config.model_id): vocabulary_model, str(config.model_id + 1): sentence_model})
 
     def _model_json(self, model_id: int, name: str, templates: list[dict[str, str]]) -> dict[str, object]:
         return {
@@ -198,6 +198,9 @@ class SQLiteApkgDeckWriter:
             "req": [[index, "all", [0, 1]] for index in range(len(templates))],
         }
 
+    def _model_id(self, config: DeckBuildConfig, card_type: str) -> int:
+        return config.model_id if card_type == "vocabulary" else config.model_id + 1
+
     def _decks_json(self, config: DeckBuildConfig) -> str:
         deck = {"id": config.deck_id, "name": config.deck_name, "mod": int(time.time()), "usn": -1, "collapsed": False, "browserCollapsed": False, "desc": "Generated by Thai Path", "dyn": 0, "conf": 1}
         return json.dumps({str(config.deck_id): deck})
@@ -205,26 +208,11 @@ class SQLiteApkgDeckWriter:
 
 def _collect_notes(lesson: Lesson) -> list[_NoteData]:
     notes: list[_NoteData] = []
-    lesson_tag = f"lesson{lesson.number:03d}"
-    for concept in lesson.grammar_concepts:
-        title = f"{concept.title}\n\n" if concept.title else ""
-        notes.append(
-            _NoteData(
-                title + concept.explanation,
-                concept.explanation,
-                "",
-                concept.title or "",
-                str(lesson.number),
-                "Grammar",
-                concept.id,
-                _tags("grammar", lesson_tag),
-            )
-        )
     for item in lesson.vocabulary:
-        tags = _tags("vocabulary", lesson_tag, item.part_of_speech)
-        notes.append(_NoteData(item.thai, item.english, item.transliteration or "", item.note or "", str(lesson.number), "Vocabulary", item.id, tags, item.audio if item.audio and item.audio.exists() else None))
+        tags = " ".join([lesson.deck_tag, "vocabulary", *lesson.metadata.tags])
+        notes.append(_NoteData(item.thai, item.english, item.transliteration or "", item.note or "", str(lesson.number), "vocabulary", item.id, tags, item.audio if item.audio and item.audio.exists() else None))
     for sentence in lesson.sentences:
-        tags = _tags("sentence", lesson_tag, "grammar")
+        tags = " ".join([lesson.deck_tag, "sentence", *lesson.metadata.tags])
         notes.append(
             _NoteData(
                 sentence.thai,
@@ -232,54 +220,17 @@ def _collect_notes(lesson: Lesson) -> list[_NoteData]:
                 sentence.transliteration or "",
                 sentence.note or "",
                 str(lesson.number),
-                "Sentence",
+                "sentence",
                 sentence.id,
                 tags,
                 sentence.audio if sentence.audio and sentence.audio.exists() else None,
             )
         )
-    for line in lesson.dialogue:
-        notes.append(
-            _NoteData(
-                line.thai,
-                line.english,
-                line.transliteration or "",
-                line.speaker,
-                str(lesson.number),
-                "Dialogue",
-                line.id,
-                _tags("dialogue", lesson_tag),
-                line.audio if line.audio and line.audio.exists() else None,
-            )
-        )
     return notes
 
 
-def _tags(*values: str | None) -> str:
-    normalized = ["thai-path", *values, "thai-eng", "eng-thai"]
-    return " ".join(dict.fromkeys(_tag(value) for value in normalized if value))
-
-
-def _tag(value: str) -> str:
-    return value.strip().lower().replace(" ", "-").replace("_", "-")
-
-
-def _stable_key(note: _NoteData) -> str:
-    return f"thai-path:{note.card_type}:{note.source_id}"
-
-
-def _stable_guid(note: _NoteData) -> str:
-    return hashlib.sha1(_stable_key(note).encode("utf-8")).hexdigest()
-
-
-def _stable_note_id(note: _NoteData) -> int:
-    digest = hashlib.sha1(_stable_key(note).encode("utf-8")).hexdigest()[:15]
-    return int(digest, 16)
-
-
-def _stable_card_id(note: _NoteData, ordinal: int) -> int:
-    digest = hashlib.sha1(f"{_stable_key(note)}:{ordinal}".encode("utf-8")).hexdigest()[:15]
-    return int(digest, 16)
+def _templates_for(card_type: str) -> list[dict[str, str]]:
+    return VOCABULARY_CARD_TEMPLATES if card_type == "vocabulary" else SENTENCE_CARD_TEMPLATES
 
 
 def _audio_field(audio: Path | None) -> str:

@@ -17,18 +17,30 @@ CSS = """
 .label { color: #9ca3af; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; }
 """
 
-CARD_TEMPLATES = [
+VOCABULARY_CARD_TEMPLATES = [
     {
-        "name": "Thai → English",
-        "qfmt": '<div class="label">{{CardType}} · Thai → English</div><div class="thai">{{Thai}}</div><div class="audio">{{Audio}}</div><div class="transliteration">{{Transliteration}}</div>',
+        "name": "Vocabulary Thai → English",
+        "qfmt": '<div class="label">Vocabulary · Thai → English</div><div class="thai">{{Thai}}</div><div class="audio">{{Audio}}</div><div class="transliteration">{{Transliteration}}</div>',
         "afmt": '{{FrontSide}}<hr id="answer"><div class="english">{{English}}</div><div class="notes">{{Notes}}</div>',
     },
     {
-        "name": "English → Thai",
-        "qfmt": '<div class="label">{{CardType}} · English → Thai</div><div class="english">{{English}}</div>',
+        "name": "Vocabulary English → Thai",
+        "qfmt": '<div class="label">Vocabulary · English → Thai</div><div class="english">{{English}}</div>',
         "afmt": '{{FrontSide}}<hr id="answer"><div class="thai">{{Thai}}</div><div class="audio">{{Audio}}</div><div class="transliteration">{{Transliteration}}</div><div class="notes">{{Notes}}</div>',
     },
 ]
 
-VOCABULARY_CARD_TEMPLATES = CARD_TEMPLATES
-SENTENCE_CARD_TEMPLATES = CARD_TEMPLATES
+SENTENCE_CARD_TEMPLATES = [
+    {
+        "name": "Sentence Thai → English",
+        "qfmt": '<div class="label">Sentence · Thai → English</div><div class="thai">{{Thai}}</div><div class="audio">{{Audio}}</div><div class="transliteration">{{Transliteration}}</div>',
+        "afmt": '{{FrontSide}}<hr id="answer"><div class="english">{{English}}</div><div class="notes">{{Notes}}</div>',
+    },
+    {
+        "name": "Sentence English → Thai",
+        "qfmt": '<div class="label">Sentence · English → Thai</div><div class="english">{{English}}</div>',
+        "afmt": '{{FrontSide}}<hr id="answer"><div class="thai">{{Thai}}</div><div class="audio">{{Audio}}</div><div class="transliteration">{{Transliteration}}</div><div class="notes">{{Notes}}</div>',
+    },
+]
+
+CARD_TEMPLATES = VOCABULARY_CARD_TEMPLATES + SENTENCE_CARD_TEMPLATES

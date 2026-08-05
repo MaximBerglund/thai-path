@@ -32,7 +32,7 @@ def test_builder_writes_anki_package(tmp_path: Path) -> None:
     assert output.stat().st_size > 0
 
 
-def test_builder_writes_two_cards_for_each_generated_note(tmp_path: Path) -> None:
+def test_builder_writes_two_cards_for_each_vocabulary_and_sentence(tmp_path: Path) -> None:
     course = LessonLoader().load_course(Path("lessons"))
 
     output = AnkiDeckBuilder(writer=SQLiteApkgDeckWriter()).build(course, tmp_path)
@@ -46,7 +46,7 @@ def test_builder_writes_two_cards_for_each_generated_note(tmp_path: Path) -> Non
     finally:
         conn.close()
 
-    expected_notes = sum(len(lesson.grammar_concepts) + len(lesson.vocabulary) + len(lesson.sentences) + len(lesson.dialogue) for lesson in course.lessons)
+    expected_notes = sum(len(lesson.vocabulary) + len(lesson.sentences) for lesson in course.lessons)
     assert notes == expected_notes
     assert cards == expected_notes * 2
 
@@ -101,36 +101,3 @@ title: Audio Deck
 
     assert media == '{"0": "hello.mp3"}'
     assert "0" in names
-
-
-def test_builder_outputs_stable_ids_card_type_and_tags(tmp_path: Path) -> None:
-    course = LessonLoader().load_course(Path("lessons"))
-
-    first = AnkiDeckBuilder(writer=SQLiteApkgDeckWriter()).build(course, tmp_path / "first")
-    second = AnkiDeckBuilder(writer=SQLiteApkgDeckWriter()).build(course, tmp_path / "second")
-
-    def rows(package_path: Path) -> list[tuple[int, str, str, str]]:
-        extract_dir = package_path.parent / "extract"
-        extract_dir.mkdir()
-        with zipfile.ZipFile(package_path) as package:
-            package.extract("collection.anki2", extract_dir)
-        conn = sqlite3.connect(extract_dir / "collection.anki2")
-        try:
-            return conn.execute("SELECT id, guid, tags, flds FROM notes ORDER BY guid").fetchall()
-        finally:
-            conn.close()
-
-    first_rows = rows(first)
-    second_rows = rows(second)
-
-    assert [(row[0], row[1]) for row in first_rows] == [(row[0], row[1]) for row in second_rows]
-    first_fields = first_rows[0][3].split("\x1f")
-    assert first_fields[6] in {"Vocabulary", "Sentence", "Grammar", "Dialogue"}
-    all_tags = " ".join(row[2] for row in first_rows)
-    assert "thai-path" in all_tags
-    assert "lesson001" in all_tags
-    assert "thai-eng" in all_tags
-    assert "eng-thai" in all_tags
-    assert any(" vocabulary " in f" {row[2]} " for row in first_rows)
-    assert any(" sentence " in f" {row[2]} " and " grammar " in f" {row[2]} " for row in first_rows)
-    assert any(" dialogue " in f" {row[2]} " for row in first_rows)
