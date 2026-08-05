@@ -90,10 +90,10 @@ The current output builder is the Anki deck builder.
 
 `src/thaipath/templates/` stores presentation templates and styling. Version `0.1.0` includes Anki templates for four card types:
 
-1. Thai → English
-2. English → Thai
-3. Sentence recognition
-4. Sentence production
+1. Vocabulary Thai → English
+2. Vocabulary English → Thai
+3. Sentence Thai → English
+4. Sentence English → Thai
 
 Future PDF and website templates should be added here or in adjacent output-specific template modules without changing the lesson source format.
 
@@ -128,13 +128,14 @@ Implemented:
 - Internal `Course` model.
 - Anki deck generation using a `genanki` writer when available.
 - `ThaiPath.apkg` export.
-- Lesson 1 and Lesson 2 sample lesson files.
+- Lessons 1 through 5 lesson files.
 - Four Anki card templates.
+- Optional audio attachment for vocabulary items and example sentences when referenced files exist.
 - Parser and builder tests.
 
 Not implemented yet:
 
-- Audio generation or attachment.
+- Audio generation.
 - Images.
 - PDF export.
 - Website generation.
