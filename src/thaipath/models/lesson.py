@@ -123,7 +123,7 @@ class Lesson:
     def deck_tag(self) -> str:
         """Stable Anki tag for cards generated from this lesson."""
 
-        return f"lesson{self.number:03d}"
+        return f"lesson_{self.number:02d}"
 
 
 @dataclass(frozen=True, slots=True)

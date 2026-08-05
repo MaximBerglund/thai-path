@@ -25,7 +25,7 @@ def test_parser_loads_front_matter_and_required_lesson_sections() -> None:
     assert lesson.exercises[0].answer == "สวัสดีครับ"
     assert lesson.dialogue[0].id == "dialogue-01-a-hello"
     assert lesson.dialogue[0].speaker == "A"
-    assert lesson.deck_tag == "lesson001"
+    assert lesson.deck_tag == "lesson_01"
 
 
 def test_parser_keeps_backward_compatibility_for_legacy_grammar_bullets() -> None:
