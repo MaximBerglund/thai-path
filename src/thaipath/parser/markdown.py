@@ -10,7 +10,11 @@ from typing import Any
 from thaipath.models import DialogueLine, Exercise, GrammarConcept, Lesson, LessonMetadata, Sentence, VocabularyItem
 
 _SECTION_NAMES = {"grammar", "vocabulary", "example sentences", "exercises", "dialogue"}
-_SECTION_ALIASES = {"practice": "exercises", "mini dialogue": "dialogue"}
+_SECTION_ALIASES = {
+    "function words": "vocabulary",
+    "practice": "exercises",
+    "mini dialogue": "dialogue",
+}
 
 
 class MarkdownLessonError(ValueError):
