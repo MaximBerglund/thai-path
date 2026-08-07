@@ -153,6 +153,7 @@ def test_parser_loads_new_official_lessons_fully() -> None:
         "lesson004.md": (4, 14, 12),
         "lesson005.md": (5, 26, 18),
         "lesson006.md": (6, 29, 12),
+        "lesson007.md": (7, 25, 21),
     }
 
     for filename, (number, vocabulary_count, sentence_count) in expected.items():
@@ -173,3 +174,15 @@ def test_parser_includes_lesson_six_function_words_as_vocabulary() -> None:
     assert lesson.vocabulary[0].part_of_speech == "verb"
     assert lesson.vocabulary[-1].thai == "สอง"
     assert lesson.vocabulary[-1].english == "two"
+
+
+def test_parser_includes_all_lesson_seven_content() -> None:
+    lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson007.md"))
+
+    assert lesson.vocabulary[0].thai == "มี"
+    assert lesson.vocabulary[0].english == "have / there is"
+    assert lesson.vocabulary[-1].thai == "อีก"
+    assert lesson.vocabulary[-1].english == "another / more"
+    assert lesson.sentences[0].thai == "ผมมีรถ"
+    assert lesson.sentences[-1].thai == "ผมจะไปประเทศไทยพรุ่งนี้"
+    assert len(lesson.dialogue) == 6

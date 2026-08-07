@@ -12,8 +12,10 @@ from thaipath.models import DialogueLine, Exercise, GrammarConcept, Lesson, Less
 _SECTION_NAMES = {"grammar", "vocabulary", "example sentences", "exercises", "dialogue"}
 _SECTION_ALIASES = {
     "function words": "vocabulary",
+    "function words and core verbs": "vocabulary",
     "practice": "exercises",
     "mini dialogue": "dialogue",
+    "mini dialogue – at a café": "dialogue",
 }
 
 
