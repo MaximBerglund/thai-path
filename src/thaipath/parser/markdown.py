@@ -126,6 +126,12 @@ class LessonMarkdownParser:
             if heading:
                 name = heading.group(2).strip().lower()
                 canonical = _SECTION_ALIASES.get(name, name)
+                # Official lessons qualify dialogue headings with their setting
+                # (for example, "Mini Dialogue – At a Restaurant").  Treat
+                # every such heading as dialogue rather than maintaining an
+                # ever-growing list of venue-specific aliases.
+                if name.startswith("mini dialogue"):
+                    canonical = "dialogue"
                 if canonical in _SECTION_NAMES:
                     current = canonical
                     sections.setdefault(current, [])
@@ -223,7 +229,7 @@ class LessonMarkdownParser:
         return concepts
 
     def _vocabulary(self, lines: list[str], lesson_id: str, base_dir: Path | None) -> list[VocabularyItem]:
-        return [
+        items = [
             VocabularyItem(
                 id=row.get("id") or self._stable_child_id(lesson_id, "vocabulary", index),
                 lesson_id=lesson_id,
@@ -236,6 +242,50 @@ class LessonMarkdownParser:
             )
             for index, row in enumerate(self._table(lines), start=1)
         ]
+        # Some official vocabulary sections finish with entries written as
+        # three-line Markdown blocks instead of table rows:
+        #
+        #   ขวด
+        #   **khùat**
+        #   bottle
+        #
+        # Capture those blocks as first-class vocabulary too, so changing the
+        # presentation in the source lesson cannot silently drop deck cards.
+        for thai, transliteration, english in self._vocabulary_blocks(lines):
+            items.append(
+                VocabularyItem(
+                    id=self._stable_child_id(lesson_id, "vocabulary", len(items) + 1),
+                    lesson_id=lesson_id,
+                    thai=thai,
+                    english=english,
+                    transliteration=transliteration,
+                )
+            )
+        return items
+
+    def _vocabulary_blocks(self, lines: list[str]) -> list[tuple[str, str, str]]:
+        """Return non-table Thai/romanization/English vocabulary blocks."""
+
+        output: list[tuple[str, str, str]] = []
+        # Blocks before the final table can be illustrative examples embedded
+        # in an aliased section (such as "Function Words"), not vocabulary
+        # entries. Official prose entries are appended after the tabular list.
+        final_table_line = max((index for index, line in enumerate(lines) if line.strip().startswith("|")), default=-1)
+        prose_marker = next(
+            (index for index, line in enumerate(lines) if line.strip().lower() == "previously learned and reused:"),
+            len(lines),
+        )
+        for index in range(max(final_table_line, prose_marker) + 1, len(lines) - 2):
+            thai = lines[index].strip()
+            romanization = lines[index + 1].strip()
+            english = lines[index + 2].strip()
+            if not re.fullmatch(r"[\u0e00-\u0e7f][\u0e00-\u0e7f\s]*", thai):
+                continue
+            match = re.fullmatch(r"\*\*(.+?)\*\*", romanization)
+            if match is None or not english or english.startswith(("#", "|", "**")):
+                continue
+            output.append((thai, match.group(1).strip(), english))
+        return output
 
     def _sentences(self, lines: list[str], lesson_id: str, base_dir: Path | None) -> list[Sentence]:
         return [
