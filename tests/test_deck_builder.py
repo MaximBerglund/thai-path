@@ -11,7 +11,7 @@ def test_loader_creates_course_model() -> None:
     assert course.id == "thai-path"
     assert course.title == "Thai Path"
     assert course.version == "0.1.0"
-    assert [lesson.number for lesson in course.lessons] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert [lesson.number for lesson in course.lessons] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
     assert [lesson.id for lesson in course.lessons] == [
         "lesson-001-building-your-first-thai-sentences",
         "lesson-002-questions-negation-and-to-be",
@@ -21,6 +21,7 @@ def test_loader_creates_course_model() -> None:
         "lesson-06-places-and-locations",
         "lesson-07-having-wanting-and-asking",
         "lesson-08-numbers-quantities-and-classifiers",
+        "lesson-09-daily-routines-time-and-frequency",
     ]
     assert course.lessons[0].metadata.level == "A0"
 
@@ -61,6 +62,9 @@ def test_builder_writes_two_cards_for_each_vocabulary_and_sentence(tmp_path: Pat
     lesson_eight = next(lesson for lesson in course.lessons if lesson.number == 8)
     assert len(lesson_eight.vocabulary) == 35
     assert len(lesson_eight.sentences) == 20
+    lesson_nine = next(lesson for lesson in course.lessons if lesson.number == 9)
+    assert len(lesson_nine.vocabulary) == 36
+    assert len(lesson_nine.sentences) == 17
 
 
 def test_builder_packages_existing_audio_and_skips_missing_audio(tmp_path: Path) -> None:

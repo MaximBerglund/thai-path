@@ -39,6 +39,7 @@ class LessonMarkdownParser:
     def parse(self, markdown: str, *, source: str = "<memory>", base_dir: Path | None = None) -> Lesson:
         """Parse a lesson from Markdown text."""
 
+        markdown = self._unwrap_markdown_fence(markdown)
         front_matter, body = self._split_front_matter(markdown, source)
         metadata = self._metadata(front_matter, source)
         sections = self._sections(body.splitlines())
@@ -52,6 +53,20 @@ class LessonMarkdownParser:
         )
         self._validate(lesson, source)
         return lesson
+
+    def _unwrap_markdown_fence(self, markdown: str) -> str:
+        """Remove an optional fence wrapping an entire Markdown document.
+
+        Official lesson sources occasionally arrive as a fenced ``markdown``
+        snippet.  A fence around the whole file is presentation markup rather
+        than lesson content, so accept it without weakening front-matter
+        validation for ordinary files.
+        """
+
+        lines = markdown.splitlines()
+        if len(lines) >= 2 and lines[0].strip().lower() in {"```markdown", "```md"} and lines[-1].strip() == "```":
+            return "\n".join(lines[1:-1])
+        return markdown
 
     def _split_front_matter(self, markdown: str, source: str) -> tuple[dict[str, Any], str]:
         lines = markdown.splitlines()
