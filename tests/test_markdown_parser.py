@@ -202,6 +202,18 @@ def test_parser_includes_all_lesson_eight_content() -> None:
     assert len(lesson.dialogue) == 8
 
 
+def test_parser_includes_all_lesson_ninety_supplement_vocabulary() -> None:
+    lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson90.md"))
+
+    assert lesson.number == 90
+    assert len(lesson.vocabulary) == 159
+    assert lesson.vocabulary[0].thai == "ผู้หญิง"
+    assert lesson.vocabulary[0].english == "woman"
+    assert lesson.vocabulary[-1].thai == "ตรงข้ามกับ"
+    assert lesson.vocabulary[-1].english == "opposite / across from"
+    assert lesson.sentences == ()
+
+
 def test_parser_includes_all_lesson_nine_content_from_wrapped_markdown() -> None:
     lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson009.md"))
 

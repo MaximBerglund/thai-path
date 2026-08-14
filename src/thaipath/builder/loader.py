@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from thaipath.models import Course, Lesson
@@ -17,13 +18,17 @@ class LessonLoader:
     def load_directory(self, lesson_dir: Path) -> list[Lesson]:
         """Load canonical Markdown lessons from ``lesson_dir`` in lesson-number order.
 
-        The canonical source format uses compact filenames such as
-        ``lesson001.md``. If a directory still contains older dashed lesson
-        files for the same lesson numbers, the compact canonical files take
-        precedence so each lesson is loaded once.
+        The canonical source format uses undashed numeric filenames such as
+        ``lesson001.md`` and ``lesson90.md``. If a directory still contains
+        older dashed lesson files, canonical files take precedence so each
+        lesson is loaded once.
         """
 
-        paths = sorted(lesson_dir.glob("lesson[0-9][0-9][0-9].md"))
+        paths = sorted(
+            path
+            for path in lesson_dir.glob("lesson*.md")
+            if re.fullmatch(r"lesson\d+\.md", path.name)
+        )
         if not paths:
             paths = sorted(lesson_dir.glob("*.md"))
         lessons = [self._parser.parse_file(path) for path in paths]
