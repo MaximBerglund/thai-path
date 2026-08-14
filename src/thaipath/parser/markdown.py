@@ -391,15 +391,16 @@ class LessonMarkdownParser:
 
     def _validate(self, lesson: Lesson, source: str) -> None:
         missing = []
-        if not lesson.grammar_concepts:
+        is_supplement = "supplement" in lesson.metadata.tags
+        if not lesson.grammar_concepts and not is_supplement:
             missing.append("grammar")
         if not lesson.vocabulary:
             missing.append("vocabulary")
-        if not lesson.sentences:
+        if not lesson.sentences and not is_supplement:
             missing.append("example sentences")
-        if not lesson.exercises:
+        if not lesson.exercises and not is_supplement:
             missing.append("exercises")
-        if not lesson.dialogue:
+        if not lesson.dialogue and not is_supplement:
             missing.append("dialogue")
         if missing:
             raise MarkdownLessonError(f"{source}: missing required section content: {', '.join(missing)}")
