@@ -13,6 +13,7 @@ _SECTION_NAMES = {"grammar", "vocabulary", "example sentences", "exercises", "di
 _SECTION_ALIASES = {
     "function words": "vocabulary",
     "function words and core verbs": "vocabulary",
+    "new vocabulary": "vocabulary",
     "practice": "exercises",
     "mini dialogue": "dialogue",
     "mini dialogue – at a café": "dialogue",
