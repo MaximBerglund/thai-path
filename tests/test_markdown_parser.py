@@ -239,3 +239,18 @@ def test_parser_includes_all_lesson_ten_content_from_wrapped_markdown() -> None:
     assert lesson.sentences[0].thai == "โรงแรมนี้สวยมาก"
     assert lesson.sentences[-1].thai == "คุณอยู่ในห้องไหน"
     assert len(lesson.dialogue) == 8
+
+
+def test_parser_includes_all_lesson_eleven_content_from_wrapped_markdown() -> None:
+    lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson011.md"))
+
+    assert lesson.number == 11
+    assert len(lesson.vocabulary) == 26
+    assert len(lesson.sentences) == 29
+    assert lesson.vocabulary[0].thai == "ต้อง"
+    assert lesson.vocabulary[-1].thai == "ภาษาไทยกลาง"
+    assert lesson.vocabulary[-1].english == "Standard/Central Thai"
+    assert lesson.sentences[0].thai == "ผมพูดภาษาไทยได้"
+    assert lesson.sentences[-1].thai == "ขอโทษครับ ผมพูดภาษาไทยได้นิดหน่อย"
+    assert len(lesson.exercises) == 20
+    assert len(lesson.dialogue) == 5

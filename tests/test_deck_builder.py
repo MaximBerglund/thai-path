@@ -11,7 +11,7 @@ def test_loader_creates_course_model() -> None:
     assert course.id == "thai-path"
     assert course.title == "Thai Path"
     assert course.version == "0.1.0"
-    assert [lesson.number for lesson in course.lessons] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 90]
+    assert [lesson.number for lesson in course.lessons] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 90]
     assert [lesson.id for lesson in course.lessons] == [
         "lesson-001-building-your-first-thai-sentences",
         "lesson-002-questions-negation-and-to-be",
@@ -23,6 +23,7 @@ def test_loader_creates_course_model() -> None:
         "lesson-08-numbers-quantities-and-classifiers",
         "lesson-09-daily-routines-time-and-frequency",
         "lesson-10-describing-comparing-and-degree",
+        "lesson-11-ability-permission-obligation",
         "ling-beginner-supplement",
     ]
     assert course.lessons[0].metadata.level == "A0"
@@ -70,6 +71,9 @@ def test_builder_writes_two_cards_for_each_vocabulary_and_sentence(tmp_path: Pat
     lesson_ten = next(lesson for lesson in course.lessons if lesson.number == 10)
     assert len(lesson_ten.vocabulary) == 31
     assert len(lesson_ten.sentences) == 34
+    lesson_eleven = next(lesson for lesson in course.lessons if lesson.number == 11)
+    assert len(lesson_eleven.vocabulary) == 26
+    assert len(lesson_eleven.sentences) == 29
     lesson_ninety = next(lesson for lesson in course.lessons if lesson.number == 90)
     assert len(lesson_ninety.vocabulary) == 159
     assert len(lesson_ninety.sentences) == 0
