@@ -128,7 +128,7 @@ Implemented:
 - Internal `Course` model.
 - Anki deck generation using a `genanki` writer when available.
 - `ThaiPath.apkg` export.
-- Lessons 1 through 11 lesson files, plus the Lesson 90 vocabulary supplement.
+- Lessons 1 through 12 lesson files, plus the Lesson 90 vocabulary supplement.
 - Four Anki card templates.
 - Optional audio attachment for vocabulary items and example sentences when referenced files exist.
 - Parser and builder tests.
