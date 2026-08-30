@@ -285,3 +285,21 @@ def test_parser_includes_all_lesson_thirteen_content() -> None:
     assert lesson.sentences[-1].english == "Around 1,000 baht."
     assert len(lesson.exercises) == 25
     assert len(lesson.dialogue) == 6
+
+
+def test_parser_includes_all_lesson_fourteen_card_content() -> None:
+    lesson = LessonMarkdownParser().parse_file(Path("lessons/lesson014.md"))
+
+    assert lesson.number == 14
+    assert len(lesson.vocabulary) == 28
+    assert len(lesson.sentences) == 44
+    assert lesson.vocabulary[0].thai == "ว่า"
+    assert lesson.vocabulary[0].english == "that / introduce reported thought or speech"
+    assert lesson.vocabulary[-1].thai == "หน้าต่าง"
+    assert lesson.vocabulary[-1].english == "window"
+    assert lesson.sentences[0].thai == "ผมคิดว่าร้านนี้ดี"
+    assert lesson.sentences[0].english == "I think this restaurant is good."
+    assert lesson.sentences[-1].thai == "กุญแจอยู่บนโต๊ะ"
+    assert lesson.sentences[-1].english == "The key is on the table."
+    assert len(lesson.exercises) == 31
+    assert len(lesson.dialogue) == 5
